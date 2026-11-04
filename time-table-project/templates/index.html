@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Class Timetable System (CSP Solver)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+    <div class="flex flex-col h-screen max-w-7xl mx-auto p-4 gap-4">
+        
+        <!-- Top Navigation Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-lg gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"/>
+                        <rect x="9" y="9" width="6" height="6" stroke-width="2"/>
+                        <path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                        Automated Class Timetable System
+                    </h1>
+                    <p class="text-xs text-slate-400">Backtracking + Forward Checking CSP Solver Engine</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="solveBtn" onclick="runSolver()" class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 font-semibold text-white rounded-lg shadow-md transition-all text-sm">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+                    Generate Schedule
+                </button>
+                <button id="exportBtn" onclick="exportCSV()" class="hidden flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 font-medium text-slate-200 rounded-lg border border-slate-600 transition-all text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Export CSV
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex gap-2 border-b border-slate-800">
+            <button id="tabInput" onclick="switchTab('input')" class="px-4 py-2 text-sm font-semibold rounded-t-lg bg-slate-800 text-indigo-400 border-t-2 border-indigo-400">
+                Resource Configuration
+            </button>
+            <button id="tabOutput" onclick="switchTab('output')" class="px-4 py-2 text-sm font-semibold rounded-t-lg text-slate-400 hover:text-slate-200">
+                Timetable Grid View
+            </button>
+        </nav>
+
+        <!-- Main View Area -->
+        <div class="flex-1 overflow-auto">
+            
+            <!-- Input View -->
+            <div id="viewInput" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Courses Column -->
+                <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col gap-4">
+                    <h2 class="font-semibold text-indigo-300 text-sm flex items-center gap-2">Course & Faculty Allocation</h2>
+                    <form id="courseForm" class="grid grid-cols-2 gap-2 text-xs">
+                        <input id="cCode" placeholder="Code (e.g. FAI)" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <input id="cName" placeholder="Course Title" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <input id="cFaculty" placeholder="Instructor Name" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <input id="cCohort" placeholder="Cohort (e.g. 1MSc1)" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <input id="cStudents" type="number" placeholder="Students Count" value="30" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="flex items-center gap-2 text-slate-300 cursor-pointer text-xs">
+                            <input id="cLab" type="checkbox" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Needs Lab
+                        </label>
+                        <button type="submit" class="col-span-2 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded text-xs transition-all">+ Add Course</button>
+                    </form>
+                    <div id="courseList" class="overflow-y-auto max-h-72 border-t border-slate-700 pt-2 space-y-2"></div>
+                </div>
+
+                <!-- Rooms Column -->
+                <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col gap-4">
+                    <h2 class="font-semibold text-indigo-300 text-sm flex items-center gap-2">Venue Infrastructure</h2>
+                    <form id="roomForm" class="grid grid-cols-2 gap-2 text-xs">
+                        <input id="rId" placeholder="Room ID (e.g. CSE009)" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <input id="rCap" type="number" placeholder="Capacity" value="40" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="col-span-2 flex items-center gap-2 text-slate-300 cursor-pointer text-xs">
+                            <input id="rLab" type="checkbox" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Practical / Lab Facility
+                        </label>
+                        <button type="submit" class="col-span-2 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded text-xs transition-all">+ Add Room</button>
+                    </form>
+                    <div id="roomList" class="overflow-y-auto max-h-72 border-t border-slate-700 pt-2 space-y-2"></div>
+                </div>
+
+                <!-- Timeslots & Diagnostics Column -->
+                <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col gap-4">
+                    <h2 class="font-semibold text-indigo-300 text-sm flex items-center gap-2">Weekly Timeslots</h2>
+                    <form id="slotForm" class="grid grid-cols-2 gap-2 text-xs">
+                        <select id="sDay" class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                        </select>
+                        <input id="sTime" placeholder="Time (09:30-11:00)" required class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <button type="submit" class="col-span-2 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded text-xs transition-all">+ Add Timeslot</button>
+                    </form>
+                    <div id="slotList" class="overflow-y-auto max-h-48 border-t border-slate-700 pt-2 space-y-1"></div>
+
+                    <!-- Diagnostics Box -->
+                    <div id="diagnosticContainer" class="hidden bg-rose-950/40 border border-rose-800/60 p-3 rounded-lg text-xs space-y-2 mt-auto">
+                        <div class="font-bold text-rose-400 flex items-center gap-2">Rule-Based Diagnostics</div>
+                        <div id="diagnosticList" class="text-rose-200 leading-tight space-y-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Timetable View -->
+            <div id="viewOutput" class="hidden space-y-6">
+                <div id="statsBar" class="hidden flex flex-wrap gap-4 bg-slate-800 border border-slate-700 p-3 rounded-xl text-xs items-center">
+                    <div class="text-emerald-400 font-semibold">✓ CSP Solution Solved</div>
+                    <div class="text-slate-400">Execution Time: <span id="statTime" class="text-slate-200 font-bold">0 ms</span></div>
+                    <div class="text-slate-400">Backtracks Required: <span id="statBacktracks" class="text-slate-200 font-bold">0</span></div>
+                </div>
+
+                <div id="timetableContainer" class="space-y-6">
+                    <div class="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center text-slate-400">
+                        No Schedule Generated Yet. Click "Generate Schedule" to execute the CSP Solver.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Frontend Script -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
